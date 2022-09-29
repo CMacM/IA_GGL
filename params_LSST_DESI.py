@@ -22,7 +22,8 @@ a_con			=	[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]	# Fiducial constant offs
 cov_perc 		= 	[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] #percentage covariance between methods, shape measurement method
 e_rms_mean 		=	np.abs((e_rms_b+e_rms_a)/2.) # This is the e_rms used in computing the shared weight for shapes methods
 N_shapes		= 	Area_l * 3600. * n_s # Number of galaxies in the shape sample.
-
+sig_e           =   2. / S_to_N  # measurement noise
+    
 
 # Fractional errors on 'fudge factors' we are using to get a handle on the relative importance of different systematic errors.
 fudge_frac_level = np.logspace(-4, 0, 500)
