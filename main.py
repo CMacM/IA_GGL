@@ -1,7 +1,7 @@
 # This is a script which forecasts constraints on IA using multiple shape measurement methods.
 
 SURVEY = 'LSST_DESI'  # Set the survey here; this tells everything which parameter file to import.
-print "SURVEY=", SURVEY
+print("SURVEY=", SURVEY)
 endfile = 'fixDls'
 
 import numpy as np
@@ -85,7 +85,7 @@ def sum_weights(photoz_sample, specz_cut, color_cut, dNdz_par, pz_par):
 				elif(specz_cut=='nocut'):
 					(z_ph, dNdz_ph) = N_of_zph_unweighted(pa.zsmin, pa.zsmax, pa.zsmin, pa.zsmax, zminclose[zi], zmaxclose[zi], pa.zphmin, pa.zphmax, dNdz_par, pz_par)
 				else:
-					print "We do not have support for that spec-z cut. Exiting."
+					print("We do not have support for that spec-z cut. Exiting.")
 					exit()
 			elif (photoz_sample=='full'):
 				if (specz_cut=='close'):
@@ -93,10 +93,10 @@ def sum_weights(photoz_sample, specz_cut, color_cut, dNdz_par, pz_par):
 				elif(specz_cut=='nocut'):
 					(z_ph, dNdz_ph) = N_of_zph_unweighted(pa.zsmin, pa.zsmax, pa.zsmin, pa.zsmax, pa.zphmin, pa.zphmax, pa.zphmin, pa.zphmax, dNdz_par, pz_par)
 				else:
-					print "We do not have support for that spec-z cut. Exiting."
+					print("We do not have support for that spec-z cut. Exiting.")
 					exit()
 			else:
-				print "We do not have support for that photo-z sample. Exiting."
+				print("We do not have support for that photo-z sample. Exiting.")
 				exit()
 				
 			weight = weights(pa.e_rms_mean, z_ph)	
@@ -111,7 +111,7 @@ def sum_weights(photoz_sample, specz_cut, color_cut, dNdz_par, pz_par):
 					z_ph = np.linspace(zminclose[zi], zmaxclose[zi], 500)
 					zs, dNdzs = setup.get_NofZ_unnormed(pa.dNdzpar_fid, pa.dNdztype,pa.zsmin, pa.zsmax, 500, SURVEY)
 				else:
-					print "We do not have support for that spec-z cut. Exiting."
+					print("We do not have support for that spec-z cut. Exiting.")
 					exit()
 			elif (photoz_sample=='full'):
 				if (specz_cut=='close'):
@@ -121,10 +121,10 @@ def sum_weights(photoz_sample, specz_cut, color_cut, dNdz_par, pz_par):
 					z_ph = np.linspace(pa.zphmin, pa.zphmax, 500)
 					zs, dNdzs = setup.get_NofZ_unnormed(pa.dNdzpar_fid, pa.dNdztype, pa.zsmin, pa.zsmax, 500, SURVEY)
 				else:
-					print "We do not have support for that spec-z cut. Exiting."
+					print("We do not have support for that spec-z cut. Exiting.")
 					exit()
 			else:
-				print "We do not have support for that photo-z sample. Exiting."
+				print("We do not have support for that photo-z sample. Exiting.")
 				exit()	
 			fred = fred_interp(zs)
 			
@@ -139,7 +139,7 @@ def sum_weights(photoz_sample, specz_cut, color_cut, dNdz_par, pz_par):
 			sum_in_zph[zi] = scipy.integrate.simps(weight * dNdz_fred, z_ph)
 	
 		else:
-			print "We do not have support for that color cut, exiting."
+			print("We do not have support for that color cut, exiting.")
 			exit()
 	
 	# Now sum over all the lenses
@@ -192,6 +192,8 @@ def estimator_with_mult_bias():
     # Also need F.
     
     # Then put them together with with the multiplicative bias offset values to get the estimated signal.
+    
+    
     
     return
     
@@ -381,7 +383,7 @@ def check_convergence():
 	Clggterm_lpts2 = np.loadtxt('./txtfiles/cov_gamt_1h2h_'+SURVEY+'_method=1_rpts2000_lpts'+lpts_2+'_Clggterm.txt')
 	
 	fracdiff = np.abs(Clggterm_lpts2 - Clggterm_lpts1) / np.abs(Clggterm_lpts1)*100
-	print "max percentage difference=", np.amax(fracdiff), "%"
+	print("max percentage difference=", np.amax(fracdiff), "%")
 	
 	return
 	
@@ -395,7 +397,7 @@ if (SURVEY=='SDSS'):
 elif (SURVEY=='LSST_DESI'):
 	import params_LSST_DESI as pa
 else:
-	print "We don't have support for that survey yet; exiting."
+	print("We don't have support for that survey yet; exiting.")
 	exit()
 	
 # Get the surface densities we need in terms of steradians, and the weighted fractional one of the z-bin.
@@ -413,7 +415,6 @@ rp_cents	=	setup.rp_bins_mid(rp_bins) # Centers
 # Set up to get z as a function of comoving distance and vice-versa
 # Should be able to get rid of this as everywhere this is called should be replaced with CCL call.
 #z_of_com, com_of_z 	= 	setup.z_interpof_com(SURVEY)
-
 
 
 # Get the values of the boost and F - we use these for the estimator as well as the covariance so just do them once.
@@ -445,7 +446,7 @@ for i in range(0,len(pa.a_con)):
 		#print "Running, a #"+str(i+1)+" frac sys err level #" + str(k+1)
 		(nonsense, StoNsq_sysz, nonsense)	=	get_gammaIA_cov(rp_cents, rp_bins, fid_gIA, 0.5, pa.a_con[i], pa.fudge_frac_level[k])
 		StoNsquared_sysz[i,k] = StoNsq_sysz
-		print "frac level=", pa.fudge_frac_level[k],"StoN=", 1./np.sqrt(StoNsq_sysz)
+		print("frac level=", pa.fudge_frac_level[k],"StoN=", 1./np.sqrt(StoNsq_sysz))
 
 if (SURVEY=='SDSS'):		
 	np.savetxt('./txtfiles/StoN/StoNsq_stat_shapes_survey='+SURVEY+'_rlim='+str(pa.mlim)+'_fixB_'+endfile+'.txt', StoNsquared_stat)
@@ -456,7 +457,7 @@ elif (SURVEY=='LSST_DESI'):
 	np.savetxt('./txtfiles/StoN/StoNsq_stat_sysB_shapes_survey='+SURVEY+'_rlim='+str(pa.mlim)+'_fixB_'+endfile+'.txt', StoNsquared_stat_sysB)
 	np.savetxt('./txtfiles/StoN/StoNsq_sysz_shapes_survey='+SURVEY+'_rlim='+str(pa.mlim)+'_fixB_'+endfile+'.txt', StoNsquared_sysz)
 else:
-	print "We don't have support for that survey yet. Exiting."
+	print("We don't have support for that survey yet. Exiting.")
 	exit()
 	
 np.savetxt('./txtfiles/a_survey='+SURVEY+'.txt', pa.a_con)	

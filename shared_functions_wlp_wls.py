@@ -9,7 +9,7 @@ import numpy as np
 import shared_functions_setup as setup
 import os.path
 import pyccl as ccl
-from halotools.empirical_models import PrebuiltHodModelFactory
+#from halotools.empirical_models import PrebuiltHodModelFactory
 
 # Functions shared between w_{l+} and w_{ls}
 
@@ -1481,7 +1481,7 @@ def get_fSHMR(Mh, survey):
 	
 ##################################33
 	
-def get_Nsat_More(M_h, survey):
+def get_Nsat_More(Mh, survey):
 	""" Gets source galaxies in satelite halos from More et al. 2014 HOD"""
 	
 	if (survey == 'SDSS'):
@@ -1492,12 +1492,12 @@ def get_Nsat_More(M_h, survey):
 		print("We don't have support for that survey yet; exiting.")
 		exit()
 		
-	Ncen = get_Ncen_More(M_h, survey)
+	Ncen = get_Ncen_More(Mh, survey)
 		
-	Nsat = np.zeros(len(M_h))
-	for mi in range(0,len(M_h)):
-		if ( M_h[mi]> ( pa.kappa_CMASS * pa.Mmin_CMASS ) ):
-			Nsat[mi] = Ncen[mi] * ( ( M_h[mi] - pa.kappa_CMASS * pa.Mmin_CMASS) / pa.M1_CMASS)**pa.alpha_CMASS
+	Nsat = np.zeros(len(Mh))
+	for mi in range(0,len(Mh)):
+		if ( Mh[mi]> ( pa.kappa_CMASS * pa.Mmin_CMASS ) ):
+			Nsat[mi] = Ncen[mi] * ( ( Mh[mi] - pa.kappa_CMASS * pa.Mmin_CMASS) / pa.M1_CMASS)**pa.alpha_CMASS
 		else:
 			Nsat[mi] = 0.
 				

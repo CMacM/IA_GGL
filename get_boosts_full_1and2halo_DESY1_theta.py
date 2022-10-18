@@ -77,7 +77,7 @@ for zi in range(0,len(zLvec)):
             xi_1h[ri,zi] = 0.
 xi = xi_1h + pa.bd* pa.bs * xi_2h_mm
 
-# Get the comoving distance associated to the lens redshift
+# Get the comoving distance associated to the *lens* redshift
 chi_vec = np.zeros(len(zLvec))
 for zi in range(0,len(zLvec)):
     chi_vec[zi] = ccl.comoving_radial_distance(cosmo, 1./(1.+zLvec[zi])) * (pa.HH0_t/100.) # CCL returns in Mpc but we want Mpc/h

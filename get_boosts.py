@@ -6,10 +6,15 @@ import scipy.interpolate
 import matplotlib.pyplot as plt
 import os.path
 
+# Danielle scripts
 import shared_functions_setup as setup
 import shared_functions_wlp_wls as shared
 
-SURVEY = 'SDSS'
+# Charlie scripts
+import halo_model_setup as halo
+import spurious_george as sp
+
+SURVEY = input('Choose SDSS or LSST_DESI')
 endfile = 'fixDls'
 
 if (SURVEY=='SDSS'):
@@ -28,8 +33,8 @@ Boost_file_asc = './txtfiles/boosts/Boost_close_survey='+SURVEY+'_deltaz='+str(p
 if (os.path.isfile(Boost_file_a) and os.path.isfile(Boost_file_b) and os.path.isfile(Boost_file_asc)):
 	print "The boost files have previously been calculated for this endfile."
 	exit()
-    
-    
+
+        
 def sigma_e(z_s_):
     """ Returns a value for the model for the per-galaxy noise as a function of source redshift"""
 
@@ -131,24 +136,29 @@ def get_NofZ_unnormed(dNdzpar, dNdztype, z):
 # Set up interpolating functions for z(chi) and chi(z)
 (z_of_chi, chi_of_z) = setup.z_interpof_com(SURVEY)
 
-zLvec = np.linspace(pa.zLmin, pa.zLmax, 100)
+# Changed to get redshifts from LSST forecast data
+z_l, dNdz_l = sp.get_dNdz_spec(gtype='lens', year=YEAR)
+a_arr = 1. / (1. + z_l)
+k_arr = np.geomspace(1E-4,1E1,256)
 
 # Import the correlation function, from CLASS w/ halofit + FFTlog. This is for the 2halo term.
 # Import also the 1-halo term for the correlation function.
 # This is computed using the HOD's of the lens and source samples and FFTlog.
-xi_2h_mm = np.zeros((40000, len(zLvec)))
-xi_1h = np.zeros((40000, len(zLvec)))
-for zi in range(0,len(zLvec)):
-    stringz = '{:1.12f}'.format(zLvec[zi])
-    (r, xi_2h_mm[:, zi]) = np.loadtxt('./txtfiles/halofit_xi/xi2h_z='+stringz+'_'+endfile+'.txt', unpack=True)
-    (r, xi_1h[:, zi]) = np.loadtxt('./txtfiles/xi_1h_terms/xi1h_ls_z='+stringz+'_'+endfile+'.txt', unpack=True)
-    for ri in range(0,len(r)):
-        if r[ri]>3:
-            xi_1h[ri,zi] = 0.
-xi_2h = pa.bd* pa.bs * xi_2h_mm
+#xi_2h_mm = np.zeros((40000, len(zLvec)))
+#xi_1h = np.zeros((40000, len(zLvec)))
+#for zi in range(0,len(zLvec)):
+    #stringz = '{:1.12f}'.format(zLvec[zi])
+    #(r, xi_2h_mm[:, zi]) = np.loadtxt('./txtfiles/halofit_xi/xi2h_z='+stringz+'_'+endfile+'.txt', unpack=True)
+#     (r, xi_1h[:, zi]) = np.loadtxt('./txtfiles/xi_1h_terms/xi1h_ls_z='+stringz+'_'+endfile+'.txt', unpack=True)
+#     for ri in range(0,len(r)):
+#         if r[ri]>3:
+#             xi_1h[ri,zi] = 0.
+# xi_2h = pa.bd* pa.bs * xi_2h_mm
 
-xi = xi_1h + xi_2h
+# xi = xi_1h + xi_2h
 
+# replace xi calculation using halo model set in CCL and using correlation funcs from CCL
+pk_gM2D = halo.get_pk2D()
 
 # Get the comoving distance associated to the lens redshift
 chi_vec = setup.com(zLvec, SURVEY, pa.cos_par_std)
@@ -175,6 +185,7 @@ for zi in range(0, len(zLvec)):
     Pi[zi] = np.append(-np.asarray(Pi_pos_vec[index_cut:]), np.append([0],Pi_pos))
 
 
+# IGNORE --------------------------------------------------------------------------------------------------------------------------------------------------
 # Get the correlation function in terms of Pi at rp=1 where we want it for using the power law
 xi_interp_r = [0] * len(zLvec)
 xi_ofPi = [0] * len(zLvec)
@@ -192,7 +203,6 @@ for zi in range(0,len(zLvec)):
     z_Pi[zi] = z_of_chi(com_Pi[zi])
 
 # Now we effectively have xi_{ls}(rp=1, Pi(z_s); z_L)
-
 
 # Okay, now we do the required integrals:
 # Define the z_ph vectors for the three subsamples we care about:
@@ -218,6 +228,8 @@ for zi in range(0, len(zLvec)):
     dNdz[zi] = get_NofZ_unnormed(pa.dNdzpar_fid, pa.dNdztype, z_Pi[zi])
     
 dNdz_norm = get_NofZ_unnormed(pa.dNdzpar_fid, pa.dNdztype, z_Pi_norm)
+
+# -------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Do the integrals in spec-z
 #specint_num_a = np.zeros(((lenzph), len(zLvec), len(rpvec))); specint_num_b = np.zeros(((lenzph), len(zLvec), len(rpvec))); specint_num_asc = np.zeros(((lenzph), len(zLvec), len(rpvec)))

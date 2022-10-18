@@ -140,7 +140,6 @@ def p_z(z_ph, z_sp, pzpar, pztype):
 		print("Photo-z probability distribution "+str(pztype)+" not yet supported; exiting.")
 		exit()
 		
-	return p_z_
 	
 def get_NofZ_unnormed(dNdzpar, dNdztype, z_min, z_max, zpts, survey):
     """ Returns the dNdz of the sources as a function of photometric redshift, as well as the z points at which it is evaluated."""
