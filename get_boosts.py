@@ -144,21 +144,18 @@ k_arr = np.geomspace(1E-4,1E1,256)
 # Import the correlation function, from CLASS w/ halofit + FFTlog. This is for the 2halo term.
 # Import also the 1-halo term for the correlation function.
 # This is computed using the HOD's of the lens and source samples and FFTlog.
-#xi_2h_mm = np.zeros((40000, len(zLvec)))
-#xi_1h = np.zeros((40000, len(zLvec)))
-#for zi in range(0,len(zLvec)):
-    #stringz = '{:1.12f}'.format(zLvec[zi])
-    #(r, xi_2h_mm[:, zi]) = np.loadtxt('./txtfiles/halofit_xi/xi2h_z='+stringz+'_'+endfile+'.txt', unpack=True)
-#     (r, xi_1h[:, zi]) = np.loadtxt('./txtfiles/xi_1h_terms/xi1h_ls_z='+stringz+'_'+endfile+'.txt', unpack=True)
-#     for ri in range(0,len(r)):
-#         if r[ri]>3:
-#             xi_1h[ri,zi] = 0.
-# xi_2h = pa.bd* pa.bs * xi_2h_mm
+xi_2h_mm = np.zeros((40000, len(zLvec)))
+xi_1h = np.zeros((40000, len(zLvec)))
+for zi in range(0,len(zLvec)):
+stringz = '{:1.12f}'.format(zLvec[zi])
+(r, xi_2h_mm[:, zi]) = np.loadtxt('./txtfiles/halofit_xi/xi2h_z='+stringz+'_'+endfile+'.txt', unpack=True)
+    (r, xi_1h[:, zi]) = np.loadtxt('./txtfiles/xi_1h_terms/xi1h_ls_z='+stringz+'_'+endfile+'.txt', unpack=True)
+    for ri in range(0,len(r)):
+        if r[ri]>3:
+            xi_1h[ri,zi] = 0.
+xi_2h = pa.bd* pa.bs * xi_2h_mm
 
-# xi = xi_1h + xi_2h
-
-# replace xi calculation using halo model set in CCL and using correlation funcs from CCL
-pk_gM2D = halo.get_pk2D()
+xi = xi_1h + xi_2h
 
 # Get the comoving distance associated to the lens redshift
 chi_vec = setup.com(zLvec, SURVEY, pa.cos_par_std)

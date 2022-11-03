@@ -1225,7 +1225,7 @@ def vol_dens(fsky, N,survey):
         import params_DESY1_testpz as pa
     else:
         print("We don't have support for that survey yet; exiting.")
-        exit()
+        
 
     if survey == 'DESY1':
         
@@ -1466,8 +1466,8 @@ def get_fSHMR(Mh, survey):
         print("We don't have support for that survey yet; exiting.")
         exit()
 	
-    Ms = np.logspace(1, 13, 5000)
-	
+    Ms = np.logspace(np.log10(0.25), 13, 5000)
+    
     m = Ms / pa.Mso
     #Mh_vec = pa.M1 * m**(pa.beta) * np.exp( m**pa.delta / (1. + m**(-pa.gamma)) - 0.5)
     Mh_vec = pa.M1 * m**(pa.beta) * 10.**( m**pa.delta / (1. + m**(-pa.gamma)) - 0.5)

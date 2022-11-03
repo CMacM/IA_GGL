@@ -48,9 +48,9 @@ boost_sys	=	0.03 # Multiplier for the boost systematic error. This is the value 
 
 # Parameters related to the spec and photo z's of the source sample and other redshift cuts.
 zeff 	= 	0.77  # The effective redshift of the lens sample. Estimated from Figure 3.8 (COSMOS photo-z estimate) of the DESI final design report, see ./plotting_scripts/DESI_zeff.ipynb
-zLmin	=	0.025   # From same figure as above
-zLmax	=	1.175   # From same figure as above. 
-dNdzL_file	=	'DESI_redshifts_2col.txt'
+zLmin	=	0.2   # From same figure as above
+zLmax	=	1.2   # From same figure as above. 
+#dNdzL_file	=	'DESI_redshifts_2col.txt'
 # Also set the effective z region where we have lenses
 zLmin_eff = 0.4
 zLmax_eff = 1.175
