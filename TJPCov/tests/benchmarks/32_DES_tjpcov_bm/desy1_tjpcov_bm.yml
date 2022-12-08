@@ -1,0 +1,87 @@
+tracers:
+  # Using config /mnt/extraspace/damonge/Datasets/DES_Y1
+  DESgc__0:
+    zbin: 0
+    data_catalog: '/mnt/extraspace/damonge/Datasets/DES_Y1/redmagic_catalog/DES_Y1A1_3x2pt_redMaGiC_zerr_CATALOG.fits'
+    file_mask: '/mnt/extraspace/damonge/Datasets/DES_Y1/redmagic_catalog/DES_Y1A1_3x2pt_redMaGiC_MASK_HPIX4096RING.fits'
+    file_nz: '/mnt/extraspace/damonge/Datasets/DES_Y1/data_vector/2pt_NG_mcal_1110.fits'
+    mask_name: 'mask_DESgc'
+    mapper_class: 'MapperDESY1gc'
+    mask_threshold: 0.5
+    bias: 1.48
+
+  DESwl__0:
+    zbin: 0
+    zbin_cat: '/mnt/extraspace/damonge/Datasets/DES_Y1/shear_catalog/y1_source_redshift_binning_v1.fits'
+    data_cat:  '/mnt/extraspace/damonge/Datasets/DES_Y1/shear_catalog/mcal-y1a1-combined-riz-unblind-v4-matched.fits'
+    file_nz: '/mnt/extraspace/damonge/Datasets/DES_Y1/shear_catalog/y1_redshift_distributions_v1.fits'
+    path_rerun: '/mnt/extraspace/gravityls_3/xCell_output/xcell_reruns/DES_Y1'
+    mask_name: 'mask_DESwl0'
+    mapper_class: 'MapperDESY1wl'
+
+  DESwl__1:
+    zbin: 1
+    zbin_cat: '/mnt/extraspace/damonge/Datasets/DES_Y1/shear_catalog/y1_source_redshift_binning_v1.fits'
+    data_cat:  '/mnt/extraspace/damonge/Datasets/DES_Y1/shear_catalog/mcal-y1a1-combined-riz-unblind-v4-matched.fits'
+    file_nz: '/mnt/extraspace/damonge/Datasets/DES_Y1/shear_catalog/y1_redshift_distributions_v1.fits'
+    path_rerun: '/mnt/extraspace/gravityls_3/xCell_output/xcell_reruns/DES_Y1'
+    mask_name: 'mask_DESwl1'
+    mapper_class: 'MapperDESY1wl'
+
+
+cls:
+  # Options: all, cross, None
+  DESgc-DESgc:
+    compute: 'auto'
+  DESgc-DESwl:
+    compute: 'all'
+  DESwl-DESwl:
+    compute: 'all'
+
+bpw_edges: [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90, 96]
+
+cov: 
+  fiducial:
+    cosmo:
+      # Planck 2018: Table 2 of 1807.06209
+      # Omega_m: 0.3133
+      Omega_c: 0.2640
+      Omega_b: 0.0493
+      h: 0.6736
+      n_s: 0.9649
+      sigma8: 0.8111
+      w0: -1
+      wa: 0
+      transfer_function: 'boltzmann_camb'
+      baryons_power_spectrum: 'nobaryons'
+
+
+    #### Biases to apply to the tracers ####
+    gc_bias: True 
+    wl_m: False
+    wl_ia: False  # If you want wl_ia, give [A, eta, z0] instead of True
+
+toeplitz:
+  cls:
+    l_toeplitz: -1
+    l_exact: -1
+    dl_band: -1
+  cov:
+    l_toeplitz: -1
+    l_exact: -1
+    dl_band: -1
+
+sphere:
+  n_iter_sht: 0
+  n_iter_mcm: 3
+  n_iter_cmcm: 3
+  nside: 32
+  coords: 'C'
+
+recompute:
+  cls: False
+  cov: False
+  mcm: False
+  cmcm: False
+
+output:  '/mnt/extraspace/gravityls_3/xCell_output/32_DES_tjpcov_bm/'
