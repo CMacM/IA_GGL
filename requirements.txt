@@ -1,0 +1,12 @@
+scipy
+numpy
+Jinja2
+pyyaml
+pyccl>=2.5.0
+pytest
+jupyter
+sacc
+camb
+healpy
+pymaster
+h5py

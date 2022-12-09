@@ -1,0 +1,16 @@
+name: tjpcov  # minimum environment for tjpcov development
+channels: 
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.7
+  - sacc
+  - scipy
+  - numpy
+  - Jinja2=3.0.3
+  - pyyaml
+  - pyccl>=2.5.0
+  - pytest
+  - jupyter
+  - healpy
+  - mpi4py
