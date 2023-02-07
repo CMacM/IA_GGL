@@ -126,7 +126,7 @@ class LensHOD(ccl.halos.HaloProfileNFW):
 def get_vol_dens(fsky, N, year=survey_year):
     '''Get volume density for ZuMa HOD. We use cosmo_ZuMa to be consistent with method emplyed in paper'''
     
-    z_s, dndz_s, zseff = zed.get_dndz_spec('source', year)
+    z_s, dndz_s, zseff = zed.get_dndz_spec(gtype='source', year=year)
 	
     # Get dNdz, normalized to the number of source galaxies N
     norm = scipy.integrate.simps(dndz_s, z_s)
@@ -143,7 +143,7 @@ def get_vol_dens(fsky, N, year=survey_year):
     ndens_ofz = dNdz_num * H_over_c / ( 4. * np.pi * fsky * chi**2 )
 	
     # We want to integrate this over the window function of lenses x sources, because that's the redshift range on which we care about the number density:
-    z_win, win = zed.window(year)
+    z_win, win = zed.window(year=year)
     interp_ndens = scipy.interpolate.interp1d(z_s, ndens_ofz)
     ndens_forwin = interp_ndens(z_win)
 	

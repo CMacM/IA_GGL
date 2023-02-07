@@ -126,7 +126,7 @@ class LensHOD(ccl.halos.HaloProfileNFW):
 def get_vol_dens(fsky, N, year=survey_year):
     '''Get volume density for ZuMa HOD. We use cosmo_ZuMa to be consistent with method emplyed in paper'''
     
-    z_s, dndz_s, zseff = zed.get_dndz_spec('source', year)
+    z_s, dndz_s, zseff = zed.get_dndz_spec(gtype='source', year=year)
 	
     # Get dNdz, normalized to the number of source galaxies N
     norm = scipy.integrate.simps(dndz_s, z_s)
@@ -143,7 +143,7 @@ def get_vol_dens(fsky, N, year=survey_year):
     ndens_ofz = dNdz_num * H_over_c / ( 4. * np.pi * fsky * chi**2 )
 	
     # We want to integrate this over the window function of lenses x sources, because that's the redshift range on which we care about the number density:
-    z_win, win = zed.window(year)
+    z_win, win = zed.window(year=year)
     interp_ndens = scipy.interpolate.interp1d(z_s, ndens_ofz)
     ndens_forwin = interp_ndens(z_win)
 	
@@ -155,7 +155,7 @@ def get_Mstarlow(ngal, year=survey_year):
     '''Get Mstarlow for ZuMa HOD. We use cosmo_ZuMa here to be cosnsitent with method in paper'''
     
     # Get the window function for the lenses x sources
-    z_l, win = zed.window(year)
+    z_l, win = zed.window(year=year)
 	
     # Use the HOD model from Zu & Mandelbaum 2015
 		
@@ -289,18 +289,21 @@ def get_1D_power(corr, k_arr, plot_fig='n', save_fig='n'):
     # Galaxy-Matter
     if corr == 'gm': 
         pk = ccl.halos.halomod_power_spectrum(cosmo_SRD, hmc, k_arr, 1.,
-                                             Lpg, prof2=pM, normprof1=True, normprof2=True)
+                                             Lpg, prof2=pM, normprof1=True, normprof2=True
+                                             )
     # Galaxy-Galaxy
     elif corr == 'gg':
         Spg = SourceHOD(cM)
         HOD2pt = Profile2ptHOD()
         pk = ccl.halos.halomod_power_spectrum(cosmo_SRD, hmc, k_arr, 1.,
                                              Lpg, prof_2pt=HOD2pt, prof2=Spg, 
-                                              normprof1=True, normprof2=True)
+                                              normprof1=True, normprof2=True
+                                             )
     # Matter-Matter
     elif corr == 'mm':
         pk = ccl.halos.halomod_power_spectrum(cosmo_SRD, hmc, k_arr, 1.,
-                                         pM, normprof1=True)
+                                         pM, normprof1=True
+                                             )
 
     return pk
 
@@ -313,18 +316,21 @@ def get_Pk2D(corr, k_arr, a_arr, onehalo=True):
     if corr == 'gm':
         pk2D = ccl.halos.halomod_Pk2D(cosmo_SRD, hmc, Lpg, prof2=pM, 
                                     normprof1=True, normprof2=True, get_1h=onehalo,
-                                    lk_arr=np.log(k_arr), a_arr=a_arr)
+                                    lk_arr=np.log(k_arr), a_arr=a_arr
+                                     )
     # Galaxy-Galaxy
     elif corr == 'gg':
         Spg = SourceHOD(cM)
         pk2D = ccl.halos.halomod_Pk2D(cosmo_SRD, hmc, Lpg, prof_2pt=HOD2pt, prof2=Spg, 
                                       normprof1=True, normprof2=True, get_1h=onehalo, 
-                                      lk_arr=np.log(k_arr), a_arr=a_arr)
+                                      lk_arr=np.log(k_arr), a_arr=a_arr
+                                     )
     #Matter-Matter
     elif corr == 'mm':
         pk_2D = ccl.halos.halomod_Pk2D(cosmo_SRD, hmc, pM,
                                 normprof1=True, get_1h=onehalo,
-                                lk_arr=np.log(k_arr), a_arr=a_arr)
+                                lk_arr=np.log(k_arr), a_arr=a_arr
+                                      )
     else:
         print('not a correlation type')
         pk2D=0.
@@ -337,17 +343,20 @@ def get_Pgg_2D(k_arr, a_arr, onehalo=True):
     
     pk_ll = ccl.halos.halomod_Pk2D(cosmo_SRD, hmc, Lpg, prof_2pt=HOD2pt, prof2=Lpg, 
                                     normprof1=True, normprof2=True, get_1h=onehalo,
-                                    lk_arr=np.log(k_arr), a_arr=a_arr)
+                                    lk_arr=np.log(k_arr), a_arr=a_arr
+                                  )
     print('pk_ll done...')
 
     pk_ls = ccl.halos.halomod_Pk2D(cosmo_SRD, hmc, Lpg, prof_2pt=HOD2pt, prof2=Spg, 
                                       normprof1=True, normprof2=True, get_1h=onehalo, 
-                                      lk_arr=np.log(k_arr), a_arr=a_arr)
+                                      lk_arr=np.log(k_arr), a_arr=a_arr
+                                  )
     print('pk_ls done...')
     
     pk_ss = ccl.halos.halomod_Pk2D(cosmo_SRD, hmc, Spg, prof_2pt=HOD2pt, prof2=Spg, 
                                       normprof1=True, normprof2=True, get_1h=onehalo, 
-                                      lk_arr=np.log(k_arr), a_arr=a_arr)
+                                      lk_arr=np.log(k_arr), a_arr=a_arr
+                                  )
     print('pk_ss done...')
     
     print('returning: Pk_ll, Pk_ls, Pk_ss')

@@ -30,14 +30,12 @@ class FourierGaussianFsky(CovarianceFourier):
         if self.fsky is None:
             raise ValueError("You need to set fsky for FourierGaussianFsky")
 
-    def get_binning_info(self, binning="linear"):
+    def get_binning_info(self, binning="log"):
         """
         Get the ells for bins given the sacc object
-
         Parameters:
         -----------
         binning (str): Binning type.
-
         Returns:
         --------
         ell (array): All the ells covered
@@ -60,6 +58,19 @@ class FourierGaussianFsky(CovarianceFourier):
             ell_delta = (ell_max - ell_min) // nbpw
             ell_edges = np.arange(ell_min, ell_max + 1, ell_delta)
             ell = np.arange(ell_min, ell_max + ell_delta - 2)
+        elif binning == "log":
+            # assuming constant log bins
+            del_logell = np.log10(ell_eff[1:] / ell_eff[:-1]).mean()
+            ell_min = 2 * ellb_min / (10**del_logell + 1)
+            ell_max = 2 * ellb_max / (1 + 10 ** (-del_logell))
+
+            ell_min = ell_min
+            ell_max = ell_max
+            ell_edges = np.logspace(np.log10(ell_min), 
+                                    np.log10(ell_max), nbpw + 1)
+            
+            ell = np.logspace(np.log10(ell_min * 0.98), 
+                              np.log10(ell_max * 1.02), nbpw * 300)
         else:
             raise NotImplementedError(f"Binning {binning} not implemented yet")
 
@@ -75,7 +86,6 @@ class FourierGaussianFsky(CovarianceFourier):
     ):
         """
         Compute a single covariance matrix for a given pair of C_ell or xi
-
         Parameters
         ----------
             tracer_comb 1 (list): List of the pair of tracer names of C_ell^1
@@ -86,8 +96,10 @@ class FourierGaussianFsky(CovarianceFourier):
             breaking the compatibility with the NaMaster covariance.
             for_real (bool): If True, returns the covariance before
             normalization and binning. It requires setting lmax.
+            centers (bool): If True, uses the effective ell values as the bin center
+            instead of passing the edges to bin_cov for the centers to be calculated
+            there.
             lmax (int): Maximum ell up to which to compute the covariance
-
         Returns:
         --------
             cov (array): The covariance
@@ -213,12 +225,10 @@ class RealGaussianFsky(CovarianceProjectedReal):
     def _get_fourier_block(self, tracer_comb1, tracer_comb2):
         """
         Return the Fourier covariance block for two pair of tracers.
-
         Parameters
         ----------
         tracer_comb 1 (list): List of the pair of tracer names of C_ell^1
         tracer_comb 2 (list): List of the pair of tracer names of C_ell^2
-
         Returns:
         --------
         cov (array): Covariance matrix

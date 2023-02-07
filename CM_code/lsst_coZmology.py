@@ -2,6 +2,7 @@ import numpy as np
 import scipy
 import matplotlib.pyplot as plt
 import pyccl as ccl
+from more_itertools import locate
 
 import DL_basis_code.params_LSST_DESI as pa
 
@@ -30,35 +31,49 @@ y10_alp_lens = 0.90
 y10_z0_source = 0.11
 y10_alp_source = 0.68
 
-zl_max = 1.2
 zs_max = 3.5
+zs_min = 0.05
 zl_min = 0.2
-zs_min = 0.2
+zl_max = 1.2
 z_vec_len = 300
 
-def get_dndz_spec(gtype, year=survey_year):
+def get_dndz_spec(
+    gtype, 
+    zsmin=zs_min, 
+    zsmax=zs_max, 
+    zlmin=zl_min, 
+    zlmax=zl_max,
+    year=survey_year, 
+    z_vec_len=z_vec_len, 
+    normalise=True
+):
     '''Construct spectroscopic distributions for sources and lenses'''
+
     
     if year == 1 and gtype == 'source':
-        z_arr = np.linspace(zs_min, zs_max, z_vec_len)
+        z_arr = np.linspace(zsmin, zsmax, z_vec_len)
         dndz = z_arr**2 * np.exp(-(z_arr/y1_z0_source)**y1_alp_source)
-        norm = scipy.integrate.simps(dndz, z_arr)
-        dndz = dndz/norm
+        if normalise==True:
+            norm = scipy.integrate.simps(dndz, z_arr)
+            dndz = dndz/norm
     elif year == 10 and gtype == 'source':
-        z_arr = np.linspace(zs_min, zs_max, z_vec_len)
+        z_arr = np.linspace(zsmin, zsmax, z_vec_len)
         dndz = z_arr**2 * np.exp(-(z_arr/y10_z0_source)**y10_alp_source)
-        norm = scipy.integrate.simps(dndz, z_arr)
-        dndz = dndz/norm
+        if normalise==True:
+            norm = scipy.integrate.simps(dndz, z_arr)
+            dndz = dndz/norm
     elif year == 1 and gtype == 'lens':
-        z_arr = np.linspace(zl_min, zl_max, z_vec_len)
+        z_arr = np.linspace(zlmin, zlmax, z_vec_len)
         dndz = z_arr**2 * np.exp(-(z_arr/y1_z0_lens)**y1_alp_lens)
-        norm = scipy.integrate.simps(dndz, z_arr)
-        dndz = dndz/norm
+        if normalise==True:
+            norm = scipy.integrate.simps(dndz, z_arr)
+            dndz = dndz/norm
     elif year == 10 and gtype == 'lens':
-        z_arr = np.linspace(zl_min, zl_max, z_vec_len)
+        z_arr = np.linspace(zlmin, zlmax, z_vec_len)
         dndz = z_arr**2 * np.exp(-(z_arr/y10_z0_lens)**y10_alp_lens)
-        norm = scipy.integrate.simps(dndz, z_arr)
-        dndz = dndz/norm
+        if normalise==True:
+            norm = scipy.integrate.simps(dndz, z_arr)
+            dndz = dndz/norm
     else:
         print('Not an LSST release year')
         z_arr, dndz, zeff = 0., 0., 0.
@@ -67,11 +82,25 @@ def get_dndz_spec(gtype, year=survey_year):
         
     return z_arr, dndz, zeff
 
-def get_dndz_phot(gtype, year=survey_year, plot_fig='n', save_fig='n'):
-    '''Convolves error probability distribution with spectroscopic distribution to approximate photometric distribution'''
+def get_dndz_phot(
+    gtype, 
+    zsmin=zs_min, 
+    zsmax=zs_max, 
+    zlmin=zl_min, 
+    zlmax=zl_max,
+    year=survey_year, 
+    z_vec_len=z_vec_len,
+    for_Pi = False,
+    normalise=True
+):
+    '''Convolves error probability distribution with spectroscopic 
+    distribution to approximate photometric distribution'''
     
     # get spectroscopic data
-    z_s, dndz_s, zseff = get_dndz_spec(gtype, year)
+    z_s, dndz_s, *_ = get_dndz_spec(gtype=gtype, zsmin=zsmin, zsmax=zsmax, 
+                                       zlmin=zlmin, zlmax=zlmax, year=year, 
+                                       z_vec_len=z_vec_len, normalise=False
+                                      )
     
     if gtype == 'lens':
         stretch = 0.2
@@ -81,72 +110,66 @@ def get_dndz_phot(gtype, year=survey_year, plot_fig='n', save_fig='n'):
         sig_z = 0.05*(1. + z_s)
     
     # set arbitrary photo-z points in extended redshift range
-    z_ph = np.linspace(np.min(z_s), np.max(z_s)+stretch, 300)       
+    z_ph = np.linspace(zs_min, zs_max+stretch, z_vec_len)       
     
     # find probability of galaxy with true redshift z_s to be measured at redshift z_ph
+    integrand1 = np.zeros([len(z_s),len(z_ph)])
     p_zs_zph = np.zeros([len(z_s),len(z_ph)])
     for zs in range(len(z_s)):
-        p_zs_zph[zs,:] =  1. / (np.sqrt(2. * np.pi) * sig_z) * np.exp(-((z_ph - z_s[zs])**2) / (2. * sig_z**2))
+        for zph in range(len(z_ph)):
+            p_zs_zph[zs,zph] =  (1. / (np.sqrt(2. * np.pi) * sig_z[zs])) * np.exp(-((z_ph[zph] - z_s[zs])**2) / (2. * sig_z[zs]**2))
+            
+        integrand1[zs,:] = dndz_s[zs] * p_zs_zph[zs,:]
+    
+    if for_Pi:
+        # if this is to be used in the boost calculations, 
+        # return before integrating.
+        return integrand1
         
     # integrate over z_s to get dN
-    integrand1 = dndz_s * p_zs_zph
     integral1 = scipy.integrate.simps(integrand1, z_s, axis=0)
     dN = integral1
     
-    # integrate dN over z_ph to get dz_ph 
-    integrand2 = dN
-    integral2 = scipy.integrate.simps(integrand2, z_ph)
-    dz_ph = integral2
-
-    dndz_ph = dN / dz_ph
-    
-    norm = scipy.integrate.simps(dndz_ph, z_ph)
-    dndz_ph = dndz_ph / norm
-    
-    if plot_fig == 'y':
-        plt.figure(figsize=[6,5])
-        plt.title(gtype, fontsize=15)
-        plt.plot(z_ph, dndz_ph)
-        plt.plot(z_s, dndz_s)
-        plt.xlim([0., 4.0])
-        plt.xlabel('z', fontsize=15)
-        plt.ylabel(r'$\frac{dn}{dz}$', fontsize=15)
-        plt.legend([r'$z_{ph}$',r'$z_{s}$'], fontsize=16);
-    
-    if save_fig == 'y':
-        plt.savefig('zdist_comparison_post_convolution.png', dpi=300)
+    if normalise==True:
+        dz_ph = scipy.integrate.simps(dN, z_ph)
+        dndz_ph = dN / dz_ph
+    else:
+        dndz_ph = dN
         
     return z_ph, dndz_ph, p_zs_zph
 
-def get_weights():
-    '''Compute weights from LSST source ellipticity paramter forecasts. Current function is
-    simple but can be extended in complexity'''
+def get_weights(sig_y=pa.e_rms_mean, sig_e=pa.sig_e):
+    '''Compute weights from LSST source ellipticity paramter forecasts. 
+    Current function issimple but can be extended in complexity'''
     
-    weights = 1. / (pa.e_rms_mean**2 + pa.sig_e**2)
+    weights = 1. / (sig_y**2 + sig_e**2)
     
     return weights
 
-def window(year=survey_year):
+def window(
+    zsmin=zs_min, 
+    zlmax=zl_max,
+    year=survey_year,
+    z_vec_len=z_vec_len
+):
     """ Get window function, this is the window functions for LENSES x SOURCES. """
-    """ Old note: Note I am just going to use the standard cosmological parameters here because it's a pain and it shouldn't matter too much. """
-	
-    z_l, dndz_l, zleff = get_dndz_spec('lens', year)
+
+    z_l, dndz_l, zleff = get_dndz_spec(gtype='lens',zlmin=zsmin,zlmax=zlmax,year=year,z_vec_len=z_vec_len)
     
     # get source dndz but only out to max lens z
     if year == 10:
-        z_s = np.linspace(zs_min, zl_max, z_vec_len)
+        z_s = np.linspace(zsmin, zlmax, z_vec_len)
         dNdz_s = z_s**2 * np.exp(-(z_s/y10_z0_source)**y10_alp_source)
         norm = scipy.integrate.simps(dNdz_s, z_s)
         dndz_s = dNdz_s / norm
     elif year == 1:
-        z_s = np.linspace(zs_min, zl_max, z_vec_len)
+        z_s = np.linspace(zsmin, zlmax, z_vec_len)
         dNdz_s = z_s**2 * np.exp(-(z_s/y1_z0_source)**y1_alp_source)
         norm = scipy.integrate.simps(dNdz_s, z_s)
         dndz_s = dNdz_s / norm
     else:
         print('Not a survey year')
         
-	
     chi = ccl.comoving_radial_distance(cosmo_SRD, 1./(1.+z_l)) * (pa.HH0_t / 100.) # CCL returns in Mpc but we want Mpc/h
     
     OmL = 1. - pa.OmC - pa.OmB - pa.OmR - pa.OmN
@@ -154,7 +177,7 @@ def window(year=survey_year):
     dzdchi = pa.H0 * ( ( pa.OmC + pa.OmB )*(1+z_l)**3 + OmL + (pa.OmR+pa.OmN) * (1+z_l)**4 )**(0.5) 
 
     norm =  scipy.integrate.simps(dndz_l*dndz_s / chi**2 * dzdchi, z_l)
-	
+
     win = dndz_l*dndz_s / chi**2 * dzdchi / norm
-	
+
     return z_l, win

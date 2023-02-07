@@ -449,6 +449,7 @@ def bin_cov(r, cov, r_bins):  # works for cov and skewness
     -------
     (array): Binned covariance or vector of C_ell or xi
     """
+    
     bin_center = 0.5 * (r_bins[1:] + r_bins[:-1])
     n_bins = len(bin_center)
     ndim = len(cov.shape)

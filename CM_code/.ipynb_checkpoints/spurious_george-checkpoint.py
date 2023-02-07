@@ -18,7 +18,7 @@ reload(halo)
 import CM_code.lsst_coZmology as zed
 reload(zed)
 
-data_dir = '/home/b7008348/WGL_project/LSST_forecast_code/generated_data/'
+data_dir = '/home/b7009348/WGL_project/LSST_forecast_code/generated_data/'
 
 # set mp poolsize for parallelised functions
 poolsize = zed.poolsize
@@ -30,23 +30,6 @@ N_bins = 10
 interp_len = 1000
 
 survey_year = zed.survey_year
-
-# LSST z-dist pamameters 
-y1_z0_lens = 0.26
-y1_alp_lens = 0.94
-y1_z0_source = 0.13
-y1_alp_source = 0.78
-
-y10_z0_lens = 0.28
-y10_alp_lens = 0.90
-y10_z0_source = 0.11
-y10_alp_source = 0.68
-
-zl_max = 1.2
-zs_max = 3.5
-zl_min = 0.2
-zs_min = 0.3
-z_vec_len = 300
 
 y1_lens_b = 1.05
 y10_lens_b = 0.95
@@ -232,7 +215,7 @@ def get_xi_gg(maxPi, minPi, onehalo=True, year=survey_year):
     
     return xi_gg, r_p, r
 
-def get_xi_ls(onehalo=True, year=survey_year):
+def get_xi_ls(year=survey_year, onehalo=True):
     '''Interpolate galaxy clustering correlation function over rp and pi to obtain lens-source correlation as a function of these parameters'''
 
     # get spec-z for sources and lenses
@@ -271,7 +254,7 @@ def get_xi_ls(onehalo=True, year=survey_year):
         Pi[-1] = Pi_pos
     
     # call to other function to calculate xi_gg
-    xi_gg, r_p, r = get_xi_gg(maxPiPos, minPiPos, onehalo=onehalo, year=year)
+    xi_gg, r_p, r = get_xi_gg(maxPiPos, minPiPos, year=year, onehalo=onehalo)
     
     # define function used to calculate xi_ls(r,Pi) at fixed zl
     def calculate_xi_ls(zl, r, r_p, Pi, xi_gg):
@@ -325,7 +308,7 @@ def get_xi_ls(onehalo=True, year=survey_year):
 
     return xi_ls, r_p, Pi, z_Pi, z_l, dndz_l
 
-def get_boosts(onehalo=True, year=survey_year):
+def get_boosts(year=survey_year, onehalo=True):
     '''Integrate xi_ls over z_spec, z_photo, & z_lens to get boosts as a function of
     rp (or theta since rp is directly defined from theta)'''
     
@@ -335,20 +318,20 @@ def get_boosts(onehalo=True, year=survey_year):
     weights = zed.get_weights()
     
     # call to previous function to obtain xi_ls for integral
-    xi_ls, r_p, Pi, z_Pi, z_l, dndz_l = get_xi_ls(onehalo=onehalo, year=year)
+    xi_ls, r_p, Pi, z_Pi, z_l, dndz_l = get_xi_ls(year=year, onehalo=onehalo)
     
     # set dndz parameters from LSST SRD
     if year == 1:
-        z0 = y1_z0_source
-        alpha = y1_alp_source
+        z0 = zed.y1_z0_source
+        alpha = zed.y1_alp_source
     elif year == 10:
-        z0 = y10_z0_source
-        alpha = y10_alp_source
+        z0 = zed.y10_z0_source
+        alpha = zed.y10_alp_source
     else: 
         print('Not a current survey year')
         exit()
         
-    # find constant of proportionality
+    # get source redshift data    
     z_s, dndz_s, zseff = zed.get_dndz_spec('source', year)
 
     # start by constructing dndz_Pi using SRD parameterisation
@@ -362,7 +345,7 @@ def get_boosts(onehalo=True, year=survey_year):
         dndz_Pi[zi] = z_Pi[zi]**2 * np.exp(-(z_Pi[zi]/z0) ** alpha)
         
         # dist and redshifts for normalisation
-        z_Pi_norm[zi] = np.linspace(np.min(z_s), np.max(z_s), len(z_Pi[zi]))
+        z_Pi_norm[zi] = np.linspace(np.min(z_s), np.max(z_s)+0.5, len(z_Pi[zi]))
         dndz_Pi_norm[zi] = z_Pi_norm[zi]**2 * np.exp(-(z_Pi_norm[zi]/z0) ** alpha)
     
         dndz_Pi_norm[zi] = dndz_Pi_norm[zi] / scipy.integrate.simps(dndz_Pi_norm[zi], z_Pi_norm[zi]) 
@@ -392,11 +375,14 @@ def get_boosts(onehalo=True, year=survey_year):
         p = np.zeros([len(zPi_ph), len(z_Pi[zl])])
         p_norm = np.zeros([len(zPi_ph), len(z_Pi[zl])])
         
-        # loop over specific z_Pi values to find error dist for each z_Pi, also include normalisation over full redshift range
+        # loop over specific z_Pi values to find error dist for each z_Pi, 
+        # also include normalisation over full redshift range
         for zi in range(len(z_Pi[zl])):
             # create 2D array of z_ph probability at each z_Pi
             p[zi,:] =  1. / (np.sqrt(2. * np.pi) * sig_z) * np.exp(-((zPi_ph - z_Pi[zl][zi])**2) / (2. * sig_z**2))
+            
             p_norm[zi,:] =  1. / (np.sqrt(2. * np.pi) * sig_z_norm) * np.exp(-((zph_norm[zl] - z_Pi_norm[zl][zi])**2) / (2. * sig_z_norm**2))
+            
         # save p(z_Pi,z_ph) at each lens redshift
         p_zPi_zph[zl] = p
         # need to also get error pdf for full zph to normalise over
@@ -405,14 +391,18 @@ def get_boosts(onehalo=True, year=survey_year):
     
     # define a function to compute the integral over z_s -> relabelled to z_pi
     def integrate_zPi(zl):
+        
         # preallocate arrays to store data
         igl_zPi = np.zeros([len(r_p), len(z_Pi[zl])])
         num_igd_zPi = np.zeros([len(z_Pi[zl]), len(z_Pi[zl])])
         denom_igd_zPi = np.zeros([len(z_Pi[zl]), len(z_Pi[zl])])
+        
         for ri in range(len(r_p)):
+            
             # rows are rp, columns represent different Pi values
             num_igd_zPi = dndz_Pi[zl] * xi_ls[zl][ri,:] * p_zPi_zph[zl]
             denom_igd_zPi = dndz_Pi_norm[zl] * p_zPi_zph_norm[zl]
+            
             # for P(zpi,zph), we want to integrate over the z_Pi values, these are rows so axis=0
             # we normalise over the full spec z range as the slice in z_Pi[zl] only represents 
             # the fact that xi is zero outside this slice
@@ -426,16 +416,20 @@ def get_boosts(onehalo=True, year=survey_year):
     # and lens samples
     global integrate_zph
     def integrate_zph(zl):
+        
         # now we want to integrate over zph, so we need array to store integrals for different rp
         igl_zph = np.zeros([len(r_p)])
+        
         # arbitrarily define photometric redshifts slightly extended in range from zPi
         chi_plus = ccl.comoving_radial_distance(zed.cosmo_SRD, 
                                             1./(1. + np.max(z_Pi[zl]))) * (pa.HH0/100.) + np.max(Pi[zl])
         a_plus = ccl.scale_factor_of_chi(zed.cosmo_SRD, chi_plus / (pa.HH0/100.))
         zph_plus = (1. / a_plus) - 1. 
         zPi_ph = np.linspace(np.min(z_Pi[zl]), zph_plus, len(z_Pi[zl]))
+        
         # call to previous function to get first integral
         igd_zph = weights * integrate_zPi(zl)
+        
         # integrate over zph for a certain zl, zph are the columns so specify axis=1, normalise over full photo-z range
         igl_zph = scipy.integrate.simps(igd_zph, zPi_ph, axis=1) / scipy.integrate.simps(weights * np.ones([len(zPi_ph)]), zph_norm[zl])
 
@@ -494,8 +488,8 @@ def lens_bias(z_l, year=survey_year):
 
 def get_LSST_Cl(ell, corr, year=survey_year):
     
-    lens_z, lens_dndz, zleff = zed.get_dndz_spec(gtype='lens', year=year)
-    source_z, source_dndz, zseff = zed.get_dndz_spec(gtype='source', year=year)
+    lens_z, lens_dndz, zleff = zed.get_dndz_phot(gtype='lens', year=year)
+    source_z, source_dndz, zseff = zed.get_dndz_phot(gtype='source', year=year)
     
     a_l = 1. / (1. + lens_z)
     a_s = 1. / (1. + source_z)
@@ -537,44 +531,149 @@ def get_gammat_noIA(aps, theta, ell):
     
     return gammat
 
-def get_combined_covariance(Clggterm, rho, year=survey_year):
-    '''Get the covariance matrix Cov(gammat(r) - gammat'(r), gamma(r') - gammat'(r'))'''
-    # Clggterm is the halo-shapenoise terms. corr is the correlation coefficient between \gamma_rms for the methods
 
-    z_l, dndz_l, zleff = zed.get_dndz_spec('lens', year)
 
-    chiL = ccl.comoving_radial_distance(zed.cosmo_SRD, (1. / (1. + zleff))) * (pa.HH0 / 100.) 
-    # NOTE THAT WE ARE NOT GOING TO CHANGE THIS TO INCORPORATE AN EXTENDED LENS DISTRIBUTION, BECAUSE WE HAVE OPTED NOT TO INTEGRATE OF CHIL IN THE ARGUMENTS OF THE BESSEL FUNCTIONS IN THE COVARIANCE EXPRESSIONS AND THAT IS WHERE THIS COMES FROM. 
 
-    # This expression works because of the particular way we have output the covariance terms of the Fourier space calculation.
-    cov_comb = np.zeros([N_bins, N_bins])
-    for i in range(N_bins):
-        for j in range(N_bins):
-            if (i==j):
-                cov_comb[i,j] = Clggterm[i,j] * (pa.e_rms_a**2 +pa.e_rms_b**2 - 2. * rho * pa.e_rms_a * pa.e_rms_b) + (pa.e_rms_a**2 +pa.e_rms_b**2 - 2. * rho * pa.e_rms_a * pa.e_rms_b) / (4. * np.pi**2 * pa.fsky * (theta_edges[i+1]**2 - theta_edges[i]**2) * ns * nl)
-            else:
-                cov_comb[i,j] = Clggterm[i,j] * (pa.e_rms_a**2 +pa.e_rms_b**2 - 2. * rho * pa.e_rms_a * pa.e_rms_b)
+# --------------------------------------------------------------------------
+# This function is a separate get boosts which will test different convolutions
+# to find the correct method
 
-    return cov_comb
+def test_boosts(year=survey_year, onehalo=True):
+    '''Integrate xi_ls over z_spec, z_photo, & z_lens to get boosts as a function of
+    rp (or theta since rp is directly defined from theta)'''
+    
+    start = time.time()
+    
+    # get weights
+    weights = zed.get_weights()
+    
+    # call to previous function to obtain xi_ls for integral
+    xi_ls, r_p, Pi, z_Pi, z_l, dndz_l = get_xi_ls(year=year, onehalo=onehalo)
+    
+    # set dndz parameters from LSST SRD
+    if year == 1:
+        z0 = zed.y1_z0_source
+        alpha = zed.y1_alp_source
+    elif year == 10:
+        z0 = zed.y10_z0_source
+        alpha = zed.y10_alp_source
+    else: 
+        print('Not a current survey year')
+        exit()
+        
+    # get full source redshift data    
+    z_s, dndz_s, zseff = zed.get_dndz_spec('source', year)
 
-def get_gammaIA_cov_stat(ell, gIA_fid, a_con, rho, year=survey_year):
-    '''Takes the covariance matrices of the constituent elements of gamma_{IA} and combines them to get the covariance matrix of gamma_{IA} in theta bins.'''
+    # preallocate arrays for integral data
+    zpi_full = [0] * len(z_l)
+    zph_full = [0] * len(z_l)
+    zph_lims = [0] * len(z_l)
+    
+    # this is dndz_pi * p(zpi,zph) for each zl
+    igd_1 = [0] * len(z_l)
+    
+    # define all these vectors at different lens redshifts
+    for zl in range(len(z_l)):
+        
+        # set full range of spec-z for normalisation of dndz_pi
+        zpi_full[zl] = np.linspace(np.min(z_s), np.max(z_s), len(z_Pi[zl]))
+        
+        # call to get_phot() to get full z_ph vector and dndz_pi * p(zs,zph) 
+        zph_full[zl], igd_1[zl], *_ = zed.get_dndz_phot(gtype='source',
+                                                          zsmin=np.min(z_Pi[zl]),
+                                                          zsmax=np.max(z_Pi[zl]),
+                                                          z_vec_len=len(z_Pi[zl]),
+                                                          for_Pi=True
+                                                         )
+        
+        # define photo-z shift values for each zl for photo-z integral limits
+        chi_plus = ccl.comoving_radial_distance(zed.cosmo_SRD, 
+                                            1./(1. + np.max(z_Pi[zl]))) * (pa.HH0/100.) + np.max(Pi[zl])
+        a_plus = ccl.scale_factor_of_chi(zed.cosmo_SRD, chi_plus / (pa.HH0/100.))
+        zph_plus = (1. / a_plus) - 1.
+        
+        chi_minus = ccl.comoving_radial_distance(zed.cosmo_SRD, 
+                                            1./(1. + np.max(z_Pi[zl]))) * (pa.HH0/100.) - np.max(Pi[zl])
+        a_minus = ccl.scale_factor_of_chi(zed.cosmo_SRD, chi_minus / (pa.HH0/100.))
+        zph_minus = (1. / a_minus) - 1.
+        
+        # set arbitrary photo-z values in range of z_Pi boosted by 200Mpc in z
+        # these represent the limits of our photo-z integral
+        zph_lims[zl] = np.linspace(zph_minus, zph_plus, len(z_Pi[zl]))
 
-    # CLGG TERM IS THE FIRST PART OF THE COV EQ. NOT JUST CLGG
-    Clggterm_1 = get_LSST_Cl(year, ell, 'gg')
+    
+    # define a function to compute the integral over z_s -> relabelled to z_pi
+    def integrate_zPi(zl):
+        
+        # preallocate arrays to store data
+        igl_zPi = np.zeros([len(r_p), len(z_Pi[zl])])
+        num_igd = np.zeros([len(z_Pi[zl]), len(z_Pi[zl])])
+        
+        for ri in range(len(r_p)):
+            
+            # rows are rp, columns represent different Pi values
+            num_igd_zPi = xi_ls[zl][ri,:] * igd_1[zl]
+            denom_igd_zPi = igd_1[zl]
+            
+            # for P(zpi,zph), we want to integrate over the z_Pi values, these are rows so axis=0
+            # we normalise over the full spec z range as the slice in z_Pi[zl] only represents 
+            # the fact that xi is zero outside this slice
+            igl_zPi[ri,:] = scipy.integrate.simps(num_igd_zPi, z_Pi[zl], axis=0) / scipy.integrate.simps(
+                denom_igd_zPi, zpi_full[zl])
 
-    # Get the combined covariance Cov(gammat(r) - gammat'(r), gamma(r') - gammat'(r')):
-    cov_gam_diff = get_combined_covariance(year, Clggterm_1, rho)
+        # this leaves us with an array that is [len(rp) x len(zph)]
+        return igl_zPi
+    
+    # define function to integrate over z_ph. We do not use z+ and z- as we use the entire soure
+    # and lens samples
+    global integrate_zph
+    def integrate_zph(zl):
+        
+        # now we want to integrate over zph, so we need array to store integrals for different rp
+        igl_zph = np.zeros([len(r_p)])
+        
+        # call to previous function to get first integral
+        igd_zph = weights * integrate_zPi(zl)
+        
+        # integrate over zph for a certain zl, zph are the columns so specify axis=1, 
+        # normalise over lims too (see L2018 paper)
+        igl_zph = scipy.integrate.simps(igd_zph, zph_lims[zl], axis=1) / scipy.integrate.simps(weights * np.ones([len(zph_lims[zl])]), zph_lims[zl])
 
-    # Get statistical covariance matrix for (1-a) gamma_IA 
-    cov_mat_stat = np.zeros((N_bins, N_bins))
-    for i in range(N_bins):
-        for j in range(N_bins):
-            cov_mat_stat[i,j] = cov_gam_diff[i,j] /(boost[i] -1. +F[i]) / (boost[j]-1. + F[j]) 
+        # return len(rp) array representing [B(rp) - 1] at zl 
+        return igl_zph, zl
+    
+    # parallelised integration routine
+    iterables = list(range(len(z_l)))
 
-    # For statistical only
-    cov_inv_stat = np.linalg.inv(cov_mat_stat)
+    # allocate array to store [B(rp) - 1] for each zl
+    igl_zph = np.zeros([len(z_l), len(r_p)])
 
-    StoNsq_stat = np.dot(gIA_fid* (1.-a_con), np.dot(cov_inv_stat, gIA_fid * (1-a_con)))
+    # parallelise previous 2 integrals to save run time
+    with mp.Pool(poolsize) as p:
+        # output values and process ID (imap should ensure correct order)
+        igl_zph, order = zip(*p.map(integrate_zph, iterables))
 
-    return cov_mat_stat, StoNsq_stat
+    # run quick test to ensure order of outputs was preserved
+    check_order = list(order)
+    if check_order == iterables:
+        print('Order preserved for zl indices %d-%d'%(iterables[0],iterables[-1]))
+    else:
+        print('Order scrambled, data corrupted, exiting...')
+        exit()
+
+    # All [B(rp) - 1]_zl have been collected into a [len(z_l) x len(r_p)] array 
+    # We must flip along the rows as previous integrals were collected with zl descending, 
+    # but we integrate over an ascending dndz_l
+    igd_zl = np.flip(igl_zph, axis=0) * dndz_l[:,None]
+    
+    # compute final integral, which represents B - 1
+    igl_zl = scipy.integrate.simps(igd_zl, z_l, axis=0) / scipy.integrate.simps(dndz_l, z_l)
+    
+    # save data
+    np.savez(data_dir+'Boost_data_year%d'%year, B_min1 = igl_zl, B = igl_zl + 1., rp = r_p, theta = theta_cents)
+
+    end = time.time()
+    print('Boost estimation complete')
+    print('Runtime = %g seconds'%(end-start))
+    
+    return igl_zl, theta_cents
