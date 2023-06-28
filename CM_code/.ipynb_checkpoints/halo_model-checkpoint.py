@@ -8,6 +8,7 @@ import multiprocessing as mp
 import DL_basis_code.params_LSST_DESI as pa
 import DL_basis_code.shared_functions_wlp_wls as ws
 from scipy.special import erf
+from tqdm import tqdm
 
 import CM_code.lsst_coZmology as zed
 reload(zed)
@@ -70,6 +71,7 @@ class LensHOD(ccl.halos.HaloProfileNFW):
         # try with model used in notebook
         M0 = 10.**self._lM0(a)
         M1 = 10.**self._lM1(a)
+        
         return np.heaviside(M-M0,1) * ((M - M0) / M1)**self.alpha
 
         #return ws.get_Ncen_More(M, 'LSST_DESI')
@@ -144,7 +146,7 @@ def get_vol_dens(fsky, N, year=survey_year):
 	
     # We want to integrate this over the window function of lenses x sources, because that's the redshift range on which we care about the number density:
     z_win, win = zed.window(year=year)
-    interp_ndens = scipy.interpolate.interp1d(z_s, ndens_ofz)
+    interp_ndens = scipy.interpolate.interp1d(z_s, ndens_ofz, bounds_error=False, fill_value=0)
     ndens_forwin = interp_ndens(z_win)
 	
     ndens_avg = scipy.integrate.simps(ndens_forwin * win, z_win)
@@ -153,9 +155,8 @@ def get_vol_dens(fsky, N, year=survey_year):
 
 def get_Mstarlow(ngal, year=survey_year):
     '''Get Mstarlow for ZuMa HOD. We use cosmo_ZuMa here to be cosnsitent with method in paper'''
-    
     # Get the window function for the lenses x sources
-    z_l, win = zed.window(year)
+    z_l, win = zed.window(year=year)
 	
     # Use the HOD model from Zu & Mandelbaum 2015
 		
@@ -196,7 +197,7 @@ def get_Mstarlow(ngal, year=survey_year):
     for msi in range(0,len(Ms_low_vec)):
         #print "Msi=", i
         for zi in range(0,len(z_l)):
-            nsrc_of_Mstar_z[msi, zi] = scipy.integrate.simps(HMF[:, zi] * ( Nsat[msi, :] + Ncen[msi, :]), np.log10(Mh_vec / (pa.HH0 / 100.))) / (pa.HH0 / 100.)**3
+            nsrc_of_Mstar_z[msi, zi] = scipy.integrate.simps(HMF[:, zi] * (Nsat[msi, :] + Ncen[msi, :]), np.log10(Mh_vec / (pa.HH0 / 100.))) / (pa.HH0 / 100.)**3
 
         
     # Integrate this over the z window function
@@ -218,10 +219,10 @@ def get_Mstarlow(ngal, year=survey_year):
         
 class SourceHOD(ccl.halos.HaloProfileNFW):
     '''This class constructs a HOD from Zu & Mandelbaum 2015 representing LSST source galaxies. We use the cosmology defined therin to be consistent with their method'''
-    def __init__(self, c_M_relation):
-        self.tot_nsrc = get_vol_dens(fsky=pa.fsky, N=pa.N_shapes)
-        self.Mstarlow = get_Mstarlow(ngal=self.tot_nsrc)
-        super(SourceHOD, self).__init__(c_M_relation)
+    def __init__(self, c_M_relation, year=survey_year):
+        self.tot_nsrc = get_vol_dens(fsky=pa.fsky, N=pa.N_shapes, year=year)
+        self.Mstarlow = get_Mstarlow(ngal=self.tot_nsrc, year=year)
+        super(SourceHOD, self).__init__(c_M_relation, year)
         self._fourier = self._fourier_analytic_hod
     
     def _Nc(self, M, a):
@@ -268,10 +269,17 @@ class SourceHOD(ccl.halos.HaloProfileNFW):
         if np.ndim(M) == 0:
             prof = np.squeeze(prof, axis=0)
         return prof
-
+    
 # set custom class to calculate non-trivial 2pt cumulant
 # CONTROLS 1h term!
 class Profile2ptHOD(ccl.halos.Profile2pt):
+    ''' This class ONLY works for AUTO-correlations of HODs.
+    to find the cross-correlation of two HODs, for now we 
+    take the geometric mean of the auto-correlated power
+    spectra'''
+    def __init__(self, r_corr=0):
+        self.r_corr = r_corr
+        
     def fourier_2pt(self, prof, cosmo_SRD, k, M, a,
                           prof2, mass_def=None):
         return prof._fourier_variance(cosmo_SRD, k, M ,a, mass_def)
@@ -280,7 +288,7 @@ class Profile2ptHOD(ccl.halos.Profile2pt):
 HOD2pt = Profile2ptHOD()
 
 # calculates galaxy-matter power spectrum
-def get_1D_power(corr, k_arr, plot_fig='n', save_fig='n'):
+def get_1D_power(corr, k_arr, a, year=survey_year, onehalo=True):
     '''Calculate power spectra as function of k'''
     
     # ccl by default computes one and two halo terms
@@ -288,24 +296,35 @@ def get_1D_power(corr, k_arr, plot_fig='n', save_fig='n'):
     
     # Galaxy-Matter
     if corr == 'gm': 
-        pk = ccl.halos.halomod_power_spectrum(cosmo_SRD, hmc, k_arr, 1.,
-                                             Lpg, prof2=pM, normprof1=True, normprof2=True)
-    # Galaxy-Galaxy
+        pk = ccl.halos.halomod_power_spectrum(cosmo_SRD, hmc, k_arr, a,
+                                             Lpg, prof2=pM, normprof1=True, normprof2=True,
+                                              get_1h=onehalo
+                                             )
+        
+    # Lens_galaxy-Source_Galaxy cross-spectrum
     elif corr == 'gg':
-        Spg = SourceHOD(cM)
+        Spg = SourceHOD(cM, year)
         HOD2pt = Profile2ptHOD()
-        pk = ccl.halos.halomod_power_spectrum(cosmo_SRD, hmc, k_arr, 1.,
-                                             Lpg, prof_2pt=HOD2pt, prof2=Spg, 
-                                              normprof1=True, normprof2=True)
+        pll = ccl.halos.halomod_power_spectrum(cosmo_SRD, hmc, k_arr, a,
+                                             Lpg, prof_2pt=HOD2pt,
+                                              normprof1=True, get_1h=onehalo
+                                             )
+        pss = ccl.halos.halomod_power_spectrum(cosmo_SRD, hmc, k_arr, a,
+                                             Spg, prof_2pt=HOD2pt,
+                                              normprof1=True, get_1h=onehalo
+                                             )
+        pk = np.sqrt(pll * pss)
+        
     # Matter-Matter
     elif corr == 'mm':
-        pk = ccl.halos.halomod_power_spectrum(cosmo_SRD, hmc, k_arr, 1.,
-                                         pM, normprof1=True)
+        pk = ccl.halos.halomod_power_spectrum(cosmo_SRD, hmc, k_arr, a,
+                                         pM, normprof1=True
+                                             )
 
     return pk
 
 
-def get_Pk2D(corr, k_arr, a_arr, onehalo=True):
+def get_Pk2D(corr, k_arr, a_arr, year=survey_year, onehalo=True):
     '''Calculate 2D power spectrum from custome HOD and NFW profile'''
     Lpg = LensHOD(cM)
     
@@ -313,45 +332,156 @@ def get_Pk2D(corr, k_arr, a_arr, onehalo=True):
     if corr == 'gm':
         pk2D = ccl.halos.halomod_Pk2D(cosmo_SRD, hmc, Lpg, prof2=pM, 
                                     normprof1=True, normprof2=True, get_1h=onehalo,
-                                    lk_arr=np.log(k_arr), a_arr=a_arr)
+                                    lk_arr=np.log(k_arr), a_arr=a_arr
+                                     )
     # Galaxy-Galaxy
     elif corr == 'gg':
-        Spg = SourceHOD(cM)
-        pk2D = ccl.halos.halomod_Pk2D(cosmo_SRD, hmc, Lpg, prof_2pt=HOD2pt, prof2=Spg, 
-                                      normprof1=True, normprof2=True, get_1h=onehalo, 
-                                      lk_arr=np.log(k_arr), a_arr=a_arr)
+        
+        global mp_pk2d
+        def mp_pk2d(iterable):
+            return get_1D_power(corr='gg', k_arr=k_arr, a=a_arr[iterable], year=year), iterable
+        
+        iterables = list(range(len(a_arr)))
+        
+        pls_a_k = [0] * len(a_arr)
+        with mp.Pool(poolsize) as p:
+        # output values and process ID (imap should ensure correct order)
+            pls_a_k, order = zip(*p.imap(mp_pk2d, iterables))
+        
+        pls_a_k = np.asarray(pls_a_k)
+
+        pk2D = ccl.pk2d.Pk2D(cosmo=cosmo_SRD, pk_arr=pls_a_k, 
+                                a_arr=a_arr, lk_arr=np.log(k_arr), 
+                                is_logp=False)
+                                      
+        
     #Matter-Matter
     elif corr == 'mm':
-        pk_2D = ccl.halos.halomod_Pk2D(cosmo_SRD, hmc, pM,
+        pk2D = ccl.halos.halomod_Pk2D(cosmo_SRD, hmc, pM,
                                 normprof1=True, get_1h=onehalo,
-                                lk_arr=np.log(k_arr), a_arr=a_arr)
+                                lk_arr=np.log(k_arr), a_arr=a_arr
+                                      )
     else:
         print('not a correlation type')
         pk2D=0.
     
     return pk2D
 
-def get_Pgg_2D(k_arr, a_arr, onehalo=True):
+def get_Pgg_2D(k_arr, a_arr, year=survey_year, onehalo=True):
     Lpg = LensHOD(cM)
-    Spg = SourceHOD(cM)
+    Spg = SourceHOD(cM, year)
     
     pk_ll = ccl.halos.halomod_Pk2D(cosmo_SRD, hmc, Lpg, prof_2pt=HOD2pt, prof2=Lpg, 
                                     normprof1=True, normprof2=True, get_1h=onehalo,
-                                    lk_arr=np.log(k_arr), a_arr=a_arr)
+                                    lk_arr=np.log(k_arr), a_arr=a_arr
+                                  )
     print('pk_ll done...')
 
-    pk_ls = ccl.halos.halomod_Pk2D(cosmo_SRD, hmc, Lpg, prof_2pt=HOD2pt, prof2=Spg, 
-                                      normprof1=True, normprof2=True, get_1h=onehalo, 
-                                      lk_arr=np.log(k_arr), a_arr=a_arr)
+    pk_ls = get_Pk2D(corr='gg', k_arr=k_arr, a_arr=a_arr, year=survey_year)
+    
     print('pk_ls done...')
     
     pk_ss = ccl.halos.halomod_Pk2D(cosmo_SRD, hmc, Spg, prof_2pt=HOD2pt, prof2=Spg, 
                                       normprof1=True, normprof2=True, get_1h=onehalo, 
-                                      lk_arr=np.log(k_arr), a_arr=a_arr)
+                                      lk_arr=np.log(k_arr), a_arr=a_arr
+                                  )
     print('pk_ss done...')
     
     print('returning: Pk_ll, Pk_ls, Pk_ss')
     
     return pk_ll, pk_ls, pk_ss
+                                   
 
+################### JOINT HOD FOR TESTING, NOT CORRECT BUT KEEPING JUST IN CASE USEFUL #######################
+    
+    
+    
+class JointHOD(ccl.halos.HaloProfileNFW):
+    '''This class constructs a HOD from Nicola et al. 2019, representing LSST lens galaxies. We use the cosmology defined therin to ensure consitency with their method.'''
+    def __init__(self, c_M_relation, year=survey_year,
+                 lMmin=12.02, lMminp=-1.34,
+                 lM0=6.6, lM0p=-1.43,
+                 lM1=13.27, lM1p=-0.323):
+        self.lMmin=lMmin
+        self.lMminp=lMminp
+        self.lM0=lM0
+        self.lM0p=lM0p
+        self.lM1=lM1
+        self.lM1p=lM1p
+        self.a0 = 1./(1+0.65)
+        self.sigmaLogM = 0.4
+        self.alpha = 1.
+        self.tot_nsrc = get_vol_dens(fsky=pa.fsky, N=pa.N_shapes, year=year)
+        self.Mstarlow = get_Mstarlow(ngal=self.tot_nsrc, year=year)
+        super(JointHOD, self).__init__(c_M_relation)
+        self._fourier = self._fourier_analytic_hod
+    
+    def _Nc(self, M, a):
+        # Number of centrals
+        # try with model used in notebook, this could be more up to date
+        Mmin = 10.**self._lMmin(a)
+        return 0.5 * (1 + erf(np.log(M / Mmin) / self.sigmaLogM))
+        
+        #return ws.get_Ncen_More(M, 'LSST_DESI')
 
+    def _Ns(self, M, a):
+        # Number of satellites
+        # try with model used in notebook
+        return ws.get_Nsat_Zu(M_h=M, Mstar=self.Mstarlow, case='with_lens', survey='LSST_DESI')
+        #return ws.get_Ncen_More(M, 'LSST_DESI')
+
+    def _lMmin(self, a):
+        return self.lMmin + self.lMminp * (a - self.a0)
+
+    def _lM0(self, a):
+        return self.lM0 + self.lM0p * (a - self.a0)
+
+    def _lM1(self, a):
+        return self.lM1 + self.lM1p * (a - self.a0)
+
+    def _fourier_analytic_hod(self, cosmo_SRD, k, M, a, mass_def):
+        M_use = np.atleast_1d(M)
+        k_use = np.atleast_1d(k)
+        
+        Nc = self._Nc(M_use, a)
+        Ns = self._Ns(M_use, a)
+        
+        # NFW profile
+        uk = self._fourier_analytic(cosmo_SRD, k_use, M_use, a, mass_def) / M_use[:, None]
+
+        prof = Nc[:, None] * (1 + Ns[:, None] * uk)
+
+        if np.ndim(k) == 0:
+            prof = np.squeeze(prof, axis=-1)
+        if np.ndim(M) == 0:
+            prof = np.squeeze(prof, axis=0)
+        return prof
+
+    def _fourier_variance(self, cosmo_SRD, k, M, a, mass_def):
+        # Fourier-space variance of the HOD profile
+        M_use = np.atleast_1d(M)
+        k_use = np.atleast_1d(k)
+
+        Nc = self._Nc(M_use, a)
+        Ns = self._Ns(M_use, a)
+        
+        # NFW profile
+        uk = self._fourier_analytic(cosmo_SRD, k_use, M_use, a, mass_def) / M_use[:, None]
+
+        prof = Ns[:, None] * uk
+        prof = Nc[:, None] * (2 * prof + prof**2)
+
+        if np.ndim(k) == 0:
+            prof = np.squeeze(prof, axis=-1)
+        if np.ndim(M) == 0:
+            prof = np.squeeze(prof, axis=0)
+        return prof
+
+def get_joint_Pgg(k_arr, a_arr, year=survey_year, onehalo=True):
+    Jpg = JointHOD(cM, year)
+    
+    pk2D = ccl.halos.halomod_Pk2D(cosmo_SRD, hmc, Jpg, prof_2pt=HOD2pt, prof2=Jpg, 
+                                  normprof1=True, normprof2=True, get_1h=onehalo, 
+                                  lk_arr=np.log(k_arr), a_arr=a_arr
+                                 )
+    return pk2D

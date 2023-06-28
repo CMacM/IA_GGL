@@ -30,7 +30,7 @@ class FourierGaussianFsky(CovarianceFourier):
         if self.fsky is None:
             raise ValueError("You need to set fsky for FourierGaussianFsky")
 
-    def get_binning_info(self, binning="log"):
+    def get_binning_info(self, binning="log", log_res=300):
         """
         Get the ells for bins given the sacc object
         Parameters:
@@ -69,8 +69,11 @@ class FourierGaussianFsky(CovarianceFourier):
             ell_edges = np.logspace(np.log10(ell_min), 
                                     np.log10(ell_max), nbpw + 1)
             
+            # Length of ell vector is fairly arbitrary here, 
+            # hopefully nbpw * 300 is enough for the time being
+            # perhaps could have a user defineable resolution parameter?
             ell = np.logspace(np.log10(ell_min * 0.98), 
-                              np.log10(ell_max * 1.02), nbpw * 300)
+                              np.log10(ell_max * 1.02), nbpw * log_res)
         else:
             raise NotImplementedError(f"Binning {binning} not implemented yet")
 

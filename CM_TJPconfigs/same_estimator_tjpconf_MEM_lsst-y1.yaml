@@ -1,0 +1,42 @@
+tjpcov:
+    # real space SACC input file
+    # This should be  fits file with neccessary metadata, z, and n(z)
+    
+    # Will TJP construct the correct tracers on it's own or do I need to
+    # add them to the sacc file myself?
+    
+    sacc_file: 'forecast_tracer_data_lsst-y1.fits'
+    
+    # currently only gaussian covariances supported
+    cov_type: RealGaussianFsky
+    
+    # Survey parameters:
+    Ngal_lens: 26. # arc_min^2 # Y1 srd value
+
+    Ngal_source: 10. # arc_min^2 # Y1 srd value.
+
+    # constant bin sigma_e
+    sigma_e_source: 0.26 # from SRD
+
+    # linear bias for lenses constant for redshift bin - hard coded SRD Y1 values
+    bias_lens: 1.5
+
+    IA: 5.
+    
+parameters:
+    # cosmology
+    Omega_k: 0.0
+    Omega_b: 0.0492
+    Omega_c: 0.2664
+    h: 0.6727
+    w0: -1.0
+    wa: 0.0
+    sigma8: 0.831
+    n_s: 0.9645
+    transfer_function: eisenstein_hu
+    
+ProjectedReal:    
+    lmax: 4330
+    
+GaussianFsky:
+    fsky: 0.12120330642619931
