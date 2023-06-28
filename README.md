@@ -22,24 +22,21 @@ paper, but is being kept in case it is useful in future.
 
 ### Running the code (June 2023, subject to change)
 
-Because of the various code sources used, running the code can be complex. It is advisable that two environments are created, one which contains the latest release version of CCL alongside
-TJPCov and and all its dependencies, as well as any other packages required by CM_code or the analysis notebooks.
-
-**For anything involving the IA halo model** a second environment will be needed. This should contain a developer install of CCL specific to the IA_halo_model branch. Additional packages in
-this environment should be kept to the minimum neccessary.
-
-Any user will need to determine how to use the functions in CM_code for a modified analysis from the source code itself, or contact me. However, to reproduce the
-original analysis, the notebooks will be able to run using the data stored in */generated_data* given the correct packages are installed.
+Users should refer to the setup.py files of TJPCov and WeakLensingDeblending to ensure required packages are installed. At the time of writing this readme, the IA halo profile should have been
+integrated into the latest release of CCL. However, at the time of writing the code, this was not the case. I am keeping the IA_halo_CCL file for completeness, but it may not be neccessary for
+future use of the code in this repository. As this code is not intended for general use, some of the anlysis parameters were hardcoded. They can be modifed in the .py files contained in CM_code. Other
+parameters can be directly controlled through function arguements.
 
 ### Internal data
 
-Most of the data produced in this analysis can be found in */generated_data* in the form of .npz files. To repeat the analysis as done in the paper, this should be all
-that is required.
+Most of the data produced in this analysis can be found in */generated_data* in the form of .npz files. To repeat the analysis that was done in the paper, this data should be all
+that is required. Any modifications to boost factors or F will require the associated functions in *spurious_george.py* to be re-run with the desired parameters changed. Modifications to the
+galaxy size cut will required additional data which cannot be found in this repo. Please see below.
 
 ### External data
 
-If attempting to reproduce this analysis from scratch, additional external data will be neccessary. To produce LSST WeakLensingDeblending catalogues, the OneDegSq.fits file will be required.
-As far as I am aware, this is only available on NERSC. Please contact me directly if this is needed and I can provide you with this file. Additionally, the resulting LSST catalogues are not
-contained in this repo due to their size. I can also provide these upon request.
+To produce the LSST WeakLensingDeblending catalogues used to account for the galaxy size cut, a OneDegSq.fits file will be required.
+As far as I am aware, this is only available on NERSC. Please contact me directly if this is needed and I can provide you with this file. Alternatively, 
+I can provide the LSST cataloguese themselves upon request.
 
 
