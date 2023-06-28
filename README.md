@@ -10,7 +10,7 @@ The code makes use of five external repositories: TJPcov (*/tjpcov*), c-d-leonar
 LSSTDESC/WeakLensingDeblending (*/WLD_size_cutting/WeakLensingDeblending*), and IA_halo_CCL (*/IA_halo_CCL*). CM_code contains code written or adapted from other sources for the specific
 requirements of this analysis.
 
-In CM_code, there are various .py files which contain functions to perform specific parts of the analysis. */lsst_coZmology.py* contains the fiducial cosmologies
+In CM_code, there are various .py files which contain functions to perform specific parts of the analysis. *lsst_coZmology.py* contains the fiducial cosmologies
 and functions to create redshift distributions and perform various redshift-related actions. *halo_model.py* contains classes for the source and lens halo occupation
 distributions, as well as functions related to setting up the halo model and obtaining power spectra from it. *spurious_george.py* contains functions to carry out
 top level calculations, such as for the boost factors and F. *tjp_helper.py* contains functions which make use of TJPcov to generate covariance matrices specific
